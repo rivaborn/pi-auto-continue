@@ -17,6 +17,12 @@ Whenever the agent loop ends, this extension calls `pi.sendUserMessage(...)` to 
 ## Install
 
 ```bash
+pi install npm:@latent-variable/pi-auto-continue
+```
+
+Or directly from GitHub:
+
+```bash
 pi install git:github.com/latent-variable/pi-auto-continue
 ```
 
@@ -30,15 +36,16 @@ Then `/reload` inside pi if it's already running.
 
 ## Usage
 
-Three commands, all discoverable via `/auto` tab-completion:
+Four commands, all discoverable via `/auto` tab-completion:
 
 | Command | What it does |
 |---|---|
 | `/auto-continue-on` | Enable (uses the current continue text, default `"continue"`) |
 | `/auto-continue-off` | Disable |
 | `/auto-continue-set <text>` | Set the continue message AND enable |
+| `/auto-continue-max <n>` | Set the iteration cap (default: 100) |
 
-When enabled, the footer shows `auto-continue N/100`.
+When enabled, the footer shows `auto-continue N/<max>`.
 
 ### Example
 
@@ -58,4 +65,4 @@ Flips auto-continue on with that as the message. Walk away. Come back and `/auto
 
 - `agent_end` fires on normal completion *and* on errors, so auto-continue will keep trying even after a failed turn. Usually what you want in a research loop, but a persistently broken turn will burn your 100-iteration cap fast.
 - The counter and enabled flag live in memory per pi process. Restarting pi, `/new`, or `/fork` clears them — re-enable with `/auto-continue-set <your text>` after.
-- The iteration cap is hardcoded to 100. Bump the constant at the top of `src/index.ts` if you need more.
+- The iteration cap defaults to 100 and can be changed at runtime with `/auto-continue-max <n>`. It resets to 100 on restart.

@@ -1,17 +1,18 @@
 import type { ExtensionAPI, ExtensionContext } from "@mariozechner/pi-coding-agent";
 
 const DEFAULT_TEXT = "continue";
-const MAX_ITERATIONS = 100;
+const DEFAULT_MAX = 100;
 
 export default function (pi: ExtensionAPI) {
 	let enabled = false;
 	let text = DEFAULT_TEXT;
+	let max = DEFAULT_MAX;
 	let count = 0;
 
 	const updateStatus = (ctx: ExtensionContext) => {
 		ctx.ui.setStatus(
 			"auto-continue",
-			enabled ? `auto-continue ${count}/${MAX_ITERATIONS}` : "",
+			enabled ? `auto-continue ${count}/${max}` : "",
 		);
 	};
 
@@ -36,8 +37,8 @@ export default function (pi: ExtensionAPI) {
 			return;
 		}
 
-		if (count >= MAX_ITERATIONS) {
-			ctx.ui.notify(`auto-continue: reached max ${MAX_ITERATIONS}, stopping`, "warning");
+		if (count >= max) {
+			ctx.ui.notify(`auto-continue: reached max ${max}, stopping`, "warning");
 			enabled = false;
 			updateStatus(ctx);
 			return;
@@ -92,6 +93,20 @@ export default function (pi: ExtensionAPI) {
 			count = 0;
 			updateStatus(ctx);
 			ctx.ui.notify(`auto-continue ON ("${text}")`, "success");
+		},
+	});
+
+	pi.registerCommand("auto-continue-max", {
+		description: "Set iteration cap.",
+		handler: async (args, ctx) => {
+			const n = Number.parseInt(args.trim(), 10);
+			if (!Number.isFinite(n) || n <= 0) {
+				ctx.ui.notify("Usage: /auto-continue-max <positive integer>", "warning");
+				return;
+			}
+			max = n;
+			updateStatus(ctx);
+			ctx.ui.notify(`auto-continue max=${max}`, "success");
 		},
 	});
 }
