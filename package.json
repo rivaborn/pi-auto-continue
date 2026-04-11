@@ -1,0 +1,19 @@
+{
+  "name": "pi-auto-continue",
+  "version": "0.1.0",
+  "description": "Pi extension that auto-sends a 'continue' message whenever the agent stops, so local agents can run autonomous overnight research loops (autoresearch-style) without babysitting.",
+  "keywords": ["pi-package", "pi", "extension", "autoresearch", "agent", "loop"],
+  "license": "MIT",
+  "author": "latent-variable",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/latent-variable/pi-auto-continue.git"
+  },
+  "homepage": "https://github.com/latent-variable/pi-auto-continue#readme",
+  "pi": {
+    "extensions": ["./src/index.ts"]
+  },
+  "peerDependencies": {
+    "@mariozechner/pi-coding-agent": "*"
+  }
+}
