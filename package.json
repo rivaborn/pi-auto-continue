@@ -1,20 +1,31 @@
 {
-  "name": "@latent-variable/pi-auto-continue",
-  "version": "0.1.0",
-  "description": "Pi extension that auto-sends a 'continue' message whenever the agent stops, so local agents can run autonomous overnight research loops (autoresearch-style) without babysitting.",
+  "name": "@rivaborn/pi-auto-continue",
+  "version": "0.2.0",
+  "type": "module",
+  "description": "Pi extension that auto-sends a 'continue' message whenever the agent stops, with failure backoff, a context-window guard, a done sentinel and persistent state, so local agents can run autonomous overnight research loops without babysitting.",
   "keywords": ["pi-package", "pi", "extension", "autoresearch", "agent", "loop"],
   "license": "MIT",
-  "author": "latent-variable",
+  "author": "rivaborn",
+  "contributors": ["latent-variable (original author)"],
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/latent-variable/pi-auto-continue.git"
+    "url": "git+https://github.com/rivaborn/pi-auto-continue.git"
   },
-  "homepage": "https://github.com/latent-variable/pi-auto-continue#readme",
-  "files": ["src", "README.md", "package.json"],
+  "homepage": "https://github.com/rivaborn/pi-auto-continue#readme",
+  "files": ["src", "README.md", "CHANGELOG.md", "package.json"],
+  "scripts": {
+    "test": "node --test \"test/**/*.test.ts\"",
+    "typecheck": "tsc -p tsconfig.json"
+  },
   "pi": {
     "extensions": ["./src/index.ts"]
   },
   "peerDependencies": {
-    "@mariozechner/pi-coding-agent": "*"
+    "@earendil-works/pi-coding-agent": "*"
+  },
+  "devDependencies": {
+    "@earendil-works/pi-coding-agent": "^1.2.0",
+    "@types/node": "^22.19.19",
+    "typescript": "^5.9.0"
   }
 }
