@@ -52,9 +52,25 @@ One command, discoverable via `/auto` tab-completion, with subcommands that also
 | `/auto-continue max <n>`         | Set the iteration cap (default 1000; above 5000 asks for confirmation)              |
 | `/auto-continue failures <n>`    | Consecutive failed turns tolerated before stopping (default 3)                      |
 | `/auto-continue context <pct>`   | Compact before continuing when context usage is at or above this percent (default 90, 0 = off) |
+| `/auto-continue every <interval> [text]` | Send at a fixed interval instead of back-to-back (`30s`, `5m`, `1h30m`; `off` = back-to-back). With text: set it, enable, and send now |
 | `/auto-continue status`          | Show the current state (also the no-argument form)                                  |
 
-When enabled, the footer shows `auto-continue N/<max>`, plus `(k fails)` while a failure streak is active.
+When enabled, the footer shows `auto-continue N/<max>`, plus `(k fails)` while a failure streak is active, and `every 5m, next 14:05` while an interval is set.
+
+### Interval loop: `/loop`
+
+`/loop <interval> <prompt>` sends the prompt now, then again every interval, the pi counterpart of Claude Code's `/loop 5m <prompt>`. It is the same loop as `/auto-continue every <interval> <prompt>`, so every guard above still applies.
+
+| Command                     | What it does                                              |
+|-----------------------------|-----------------------------------------------------------|
+| `/loop 5m check the build`  | Send "check the build" now, then every 5 minutes          |
+| `/loop off`                 | Stop (Escape mid-turn stops it too)                       |
+| `/loop status`              | Show the current state, including when the next send is due |
+
+- The interval is measured **start to start**: a send at 10:00 with `5m` makes the next one due at 10:05, however long the turn took. A turn that outruns the interval is followed by the next send as soon as it ends. Sends never stack up and never interrupt a running turn.
+- Intervals: `30s`, `5m`, `1h`, `1h30m`, or a bare number of seconds. Minimum 10s.
+- A message you type during the wait is answered normally. The pending send is re-timed from the last loop send, not from your message.
+- The interval is persisted with the rest of the state. As with any restored loop, nothing fires after a restart until you send a message.
 
 ### Example
 

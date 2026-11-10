@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.3.0 (2026-11-10)
+
+### Added
+
+- **Interval loop.** `/loop <interval> <prompt>` sends the prompt now and then every interval (start to start), like Claude Code's `/loop 5m <prompt>`. `/loop off` and `/loop status`. The same is available as `/auto-continue every <interval> [text]`; without text it only changes the interval, and `every off` returns to back-to-back. The minimum interval is 10s. A send is due at last send + interval, or immediately if the turn ran past that. It never interrupts a running turn. The footer shows the interval and the next send time. `intervalMs` is persisted; entries from 0.2.0 restore as back-to-back.
+
 ## 0.2.0 (2026-10-12)
 
 First release of the [rivaborn fork](https://github.com/rivaborn/pi-auto-continue). Adds the guard rails an unattended loop needs.

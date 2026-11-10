@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
-import { createAutoContinue, DONE_SENTINEL, ENTRY_TYPE } from "../src/index.ts";
+import { createAutoContinue, DONE_SENTINEL, ENTRY_TYPE, formatInterval, parseInterval } from "../src/index.ts";
 
 // ---- minimal fakes for the slice of pi's ExtensionAPI / ExtensionContext we use ----
 
@@ -307,12 +307,140 @@ describe("auto-continue", () => {
 		assert.equal(ac.state.enabled, false);
 	});
 
+	it("parses and formats intervals", () => {
+		assert.equal(parseInterval("30s"), 30_000);
+		assert.equal(parseInterval("5m"), 300_000);
+		assert.equal(parseInterval("1h30m"), 5_400_000);
+		assert.equal(parseInterval("90"), 90_000);
+		assert.equal(parseInterval("off"), 0);
+		assert.equal(parseInterval("5x"), undefined);
+		assert.equal(parseInterval("5m check"), undefined);
+		assert.equal(formatInterval(5_400_000), "1h30m");
+		assert.equal(formatInterval(0), "off");
+	});
+
+	it("/loop sends the prompt now, then waits the interval (start to start) after each turn", async () => {
+		const f = fakePi();
+		const clock = { t: 1_000_000 };
+		const ac = createAutoContinue(f.pi, { ...FAST, minIntervalMs: 0, now: () => clock.t });
+		const { ctx, statuses } = fakeCtx();
+		await f.commands.get("loop")!.handler("60s check the build", ctx);
+		await tick();
+		assert.deepEqual(f.sent, ["check the build"], "first send is immediate");
+		assert.equal(ac.state.enabled, true);
+		assert.equal(ac.state.intervalMs, 60_000);
+
+		// Turn took 20s; the next send is due 40s later, not immediately.
+		clock.t += 20_000;
+		await f.emit("agent_end", { messages: [assistant("built ok")] }, ctx);
+		await tick();
+		assert.deepEqual(f.sent, ["check the build"], "waits for the interval");
+		assert.equal(ac.hasPending(), true);
+		assert.match(statuses.at(-1)!, /every 1m, next /);
+		await f.commands.get("loop")!.handler("off", ctx);
+	});
+
+	it("sends right after the turn when the turn outran the interval", async () => {
+		const f = fakePi();
+		const clock = { t: 0 };
+		createAutoContinue(f.pi, { ...FAST, minIntervalMs: 0, now: () => clock.t });
+		const { ctx } = fakeCtx();
+		await f.commands.get("loop")!.handler("10s go", ctx);
+		await tick();
+		clock.t += 15_000;
+		await f.emit("agent_end", { messages: [assistant("x")] }, ctx);
+		await tick();
+		assert.deepEqual(f.sent, ["go", "go"]);
+	});
+
+	it("fires the interval send when the wait elapses", async () => {
+		const f = fakePi();
+		const clock = { t: 0 };
+		createAutoContinue(f.pi, { ...FAST, minIntervalMs: 0, now: () => clock.t });
+		const { ctx } = fakeCtx();
+		await f.commands.get("loop")!.handler("1s go", ctx);
+		await tick();
+		clock.t += 980; // 20ms of the interval left
+		await f.emit("agent_end", { messages: [assistant("x")] }, ctx);
+		await tick(5);
+		assert.equal(f.sent.length, 1);
+		await tick(40);
+		assert.equal(f.sent.length, 2);
+	});
+
+	it("a user turn during the wait does not stack sends; the loop re-times off the last auto send", async () => {
+		const f = fakePi();
+		const clock = { t: 0 };
+		const ac = createAutoContinue(f.pi, { ...FAST, minIntervalMs: 0, now: () => clock.t });
+		const { ctx } = fakeCtx();
+		await f.commands.get("loop")!.handler("1m go", ctx);
+		await tick();
+		clock.t += 5_000;
+		await f.emit("agent_end", { messages: [assistant("x")] }, ctx);
+		assert.equal(ac.hasPending(), true);
+		await f.emit("agent_start", {}, ctx); // user typed something
+		assert.equal(ac.hasPending(), false);
+		await f.emit("agent_end", { messages: [assistant("answered user")] }, ctx);
+		assert.equal(ac.hasPending(), true);
+		await tick();
+		assert.deepEqual(f.sent, ["go"]);
+		await f.commands.get("loop")!.handler("off", ctx);
+	});
+
+	it("rejects a bad or too-short interval and /loop off stops", async () => {
+		const f = fakePi();
+		const ac = createAutoContinue(f.pi, FAST); // default 10s minimum
+		const { ctx, notices } = fakeCtx();
+		const loop = f.commands.get("loop")!;
+		await loop.handler("5s go", ctx);
+		assert.equal(ac.state.enabled, false);
+		assert.match(notices.at(-1)!.msg, /minimum 10s/);
+		await loop.handler("soon go", ctx);
+		assert.equal(ac.state.enabled, false);
+		await loop.handler("5m", ctx);
+		assert.match(notices.at(-1)!.msg, /Usage: \/loop/);
+		await loop.handler("5m go", ctx);
+		assert.equal(ac.state.enabled, true);
+		await loop.handler("off", ctx);
+		assert.equal(ac.state.enabled, false);
+		assert.equal(ac.hasPending(), false);
+	});
+
+	it("/auto-continue every <interval> changes only the interval; every off is back-to-back", async () => {
+		const f = fakePi();
+		const ac = createAutoContinue(f.pi, FAST);
+		const { ctx } = fakeCtx();
+		const cmd = f.commands.get("auto-continue")!;
+		await cmd.handler("every 15m", ctx);
+		assert.equal(ac.state.intervalMs, 900_000);
+		assert.equal(ac.state.enabled, false);
+		assert.deepEqual(f.sent, []);
+		await cmd.handler("every off", ctx);
+		assert.equal(ac.state.intervalMs, 0);
+	});
+
+	it("persists the interval and restores old entries without one as back-to-back", async () => {
+		const f = fakePi();
+		createAutoContinue(f.pi, FAST);
+		const { ctx } = fakeCtx();
+		await f.commands.get("loop")!.handler("5m go", ctx);
+		assert.equal(f.entries.at(-1)!.data.intervalMs, 300_000);
+
+		const g = fakePi();
+		const ac2 = createAutoContinue(g.pi, FAST);
+		ac2.state.intervalMs = 123;
+		const old = { enabled: true, text: "x", max: 10, count: 2, failures: 0, maxFailures: 3, contextThreshold: 90 };
+		await g.emit("session_start", {}, fakeCtx({ branch: [{ type: "custom", customType: ENTRY_TYPE, data: old }] }).ctx);
+		assert.equal(ac2.state.intervalMs, 0);
+		assert.equal(ac2.state.count, 2);
+	});
+
 	it("offers subcommand completions", () => {
 		const f = fakePi();
 		createAutoContinue(f.pi, FAST);
 		const cmd = f.commands.get("auto-continue")!;
 		const all = cmd.getArgumentCompletions!("") as { value: string }[];
-		assert.ok(all.length >= 7);
+		assert.ok(all.length >= 8);
 		const s = cmd.getArgumentCompletions!("se") as { value: string }[];
 		assert.deepEqual(s.map((x) => x.value), ["set "]);
 		assert.equal(cmd.getArgumentCompletions!("zzz"), null);
