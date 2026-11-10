@@ -1,3 +1,5 @@
+> **Moved (2026-11-10):** this package now lives in [`rivaborn/agent-extensions`](https://github.com/rivaborn/agent-extensions) under `pi/pi-auto-continue/`, with its full history. This repo is archived and no longer updated.
+
 # pi-auto-continue
 
 A [pi](https://shittycodingagent.ai) extension that automatically sends a "continue" message every time the agent finishes a turn, so you don't have to babysit long-running work. Built for **autonomous overnight research loops** in the spirit of Andrej Karpathy's [autoresearch](https://github.com/karpathy/autoresearch): give the agent a brief, walk away, and let it iterate until morning.
